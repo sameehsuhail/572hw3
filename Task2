@@ -1,10 +1,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from surprise import Dataset, Reader, accuracy
+from surprise import Dataset, Reader
 from surprise.model_selection import cross_validate
 from surprise.prediction_algorithms.knns import KNNBasic
 from surprise.prediction_algorithms.matrix_factorization import SVD
-
 
 # Load data
 data = pd.read_csv('/content/drive/MyDrive/hw3.2/ratings_small.csv')
@@ -37,28 +36,33 @@ print(f"Probabilistic Matrix Factorization - MAE: {pmf_mae}, RMSE: {pmf_rmse}")
 print(f"User-based Collaborative Filtering - MAE: {user_cf_mae}, RMSE: {user_cf_rmse}")
 print(f"Item-based Collaborative Filtering - MAE: {item_cf_mae}, RMSE: {item_cf_rmse}")
 
+# Varying number of neighbors (k)
+k_values = range(5, 41)
+for k in k_values:
+    ubcf_k = KNNBasic(k=k, sim_options={'user_based': True})
+    ubcf_k_mae, ubcf_k_rmse = evaluate_model(ubcf_k)
+    print(f"UBCF with k={k} - MAE: {ubcf_k_mae}, RMSE: {ubcf_k_rmse}")
+
+    ibcf_k = KNNBasic(k=k, sim_options={'user_based': False})
+    ibcf_k_mae, ibcf_k_rmse = evaluate_model(ibcf_k)
+    print(f"IBCF with k={k} - MAE: {ibcf_k_mae}, RMSE: {ibcf_k_rmse}")
+
 # Similarity Metrics
 similarity_metrics = ['cosine', 'msd', 'pearson']
 ubcf_results = {metric: {'mae': [], 'rmse': []} for metric in similarity_metrics}
 ibcf_results = {metric: {'mae': [], 'rmse': []} for metric in similarity_metrics}
 
 for metric in similarity_metrics:
-    ubcf = KNNBasic(sim_options={'name': metric, 'user_based': True})
-    ubcf_mae, ubcf_rmse = evaluate_model(ubcf)
-    ubcf_results[metric]['mae'].append(ubcf_mae)
-    ubcf_results[metric]['rmse'].append(ubcf_rmse)
+    for i in range(5):  # iterate through folds
+        ubcf = KNNBasic(k=10, sim_options={'name': metric, 'user_based': True})
+        ubcf_mae, ubcf_rmse = evaluate_model(ubcf)
+        ubcf_results[metric]['mae'].append(ubcf_mae)
+        ubcf_results[metric]['rmse'].append(ubcf_rmse)
 
-    ibcf = KNNBasic(sim_options={'name': metric, 'user_based': False})
-    ibcf_mae, ibcf_rmse = evaluate_model(ibcf)
-    ibcf_results[metric]['mae'].append(ibcf_mae)
-    ibcf_results[metric]['rmse'].append(ibcf_rmse)
-
-# Print collected results
-print("UBCF Results:")
-print(ubcf_results)
-
-print("\nIBCF Results:")
-print(ibcf_results)
+        ibcf = KNNBasic(k=10, sim_options={'name': metric, 'user_based': False})
+        ibcf_mae, ibcf_rmse = evaluate_model(ibcf)
+        ibcf_results[metric]['mae'].append(ibcf_mae)
+        ibcf_results[metric]['rmse'].append(ibcf_rmse)
 
 # Plot the results
 fig, axes = plt.subplots(2, 3, figsize=(15, 8))

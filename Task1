@@ -416,6 +416,43 @@ def kmeans(instances, k, similarity='euclidean', animation=False, initCentroids=
 
 
 
+def majority_vote(cluster):
+    labels = [instance[0] for instance in cluster]
+    return max(set(labels), key=labels.count)
+
+def label_clusters(clusters):
+    cluster_labels = [majority_vote(cluster) for cluster in clusters]
+    return cluster_labels
+
+def accuracy(ground_truth, predicted):
+    correct = sum(1 for true, pred in zip(ground_truth, predicted) if true == pred)
+    return correct / len(ground_truth)
+
+def compute_sse(clusters, centroids):
+    sse = 0
+    for i in range(len(centroids)):
+        centroid = centroids[i]
+        cluster = clusters[i]
+        for instance in cluster:
+            sse += distance(centroid, instance)**2
+    return sse
+
+# Calculate accuracy for a given clustering result
+def compute_accuracy(dataset, clusters):
+    cluster_labels = label_clusters(clusters)
+    ground_truth = [instance[0] for instance in dataset]
+    acc = accuracy(ground_truth, cluster_labels)
+    return acc
+
+def stop_criteria(prev_centroids, centroids, prev_withinss, withinss, iteration, max_iterations):
+    if iteration >= max_iterations:
+        return True
+    if prev_centroids == centroids:
+        return True
+    if prev_withinss < withinss:
+        return True
+    return False
+
 
 
 

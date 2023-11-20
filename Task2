@@ -1,0 +1,80 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from surprise import Dataset, Reader, accuracy
+from surprise.model_selection import cross_validate
+from surprise.prediction_algorithms.knns import KNNBasic
+from surprise.prediction_algorithms.matrix_factorization import SVD
+
+
+# Load data
+data = pd.read_csv('/content/drive/MyDrive/hw3.2/ratings_small.csv')
+
+# Initialize Surprise's Reader
+reader = Reader(line_format='user item rating timestamp', sep=',', skip_lines=1)
+dataset = Dataset.load_from_df(data[['userId', 'movieId', 'rating']], reader)
+
+# PMF - Probabilistic Matrix Factorization
+pmf = SVD(biased=False)
+
+# User-based Collaborative Filtering
+user_cf = KNNBasic(sim_options={'user_based': True})
+
+# Item-based Collaborative Filtering
+item_cf = KNNBasic(sim_options={'user_based': False})
+
+# Evaluate models
+def evaluate_model(model):
+    cross_validated_metrics = cross_validate(model, dataset, measures=['MAE', 'RMSE'], cv=5, verbose=True)
+    avg_mae = sum(cross_validated_metrics['test_mae']) / 5
+    avg_rmse = sum(cross_validated_metrics['test_rmse']) / 5
+    return avg_mae, avg_rmse
+
+pmf_mae, pmf_rmse = evaluate_model(pmf)
+user_cf_mae, user_cf_rmse = evaluate_model(user_cf)
+item_cf_mae, item_cf_rmse = evaluate_model(item_cf)
+
+print(f"Probabilistic Matrix Factorization - MAE: {pmf_mae}, RMSE: {pmf_rmse}")
+print(f"User-based Collaborative Filtering - MAE: {user_cf_mae}, RMSE: {user_cf_rmse}")
+print(f"Item-based Collaborative Filtering - MAE: {item_cf_mae}, RMSE: {item_cf_rmse}")
+
+# Similarity Metrics
+similarity_metrics = ['cosine', 'msd', 'pearson']
+ubcf_results = {metric: {'mae': [], 'rmse': []} for metric in similarity_metrics}
+ibcf_results = {metric: {'mae': [], 'rmse': []} for metric in similarity_metrics}
+
+for metric in similarity_metrics:
+    ubcf = KNNBasic(sim_options={'name': metric, 'user_based': True})
+    ubcf_mae, ubcf_rmse = evaluate_model(ubcf)
+    ubcf_results[metric]['mae'].append(ubcf_mae)
+    ubcf_results[metric]['rmse'].append(ubcf_rmse)
+
+    ibcf = KNNBasic(sim_options={'name': metric, 'user_based': False})
+    ibcf_mae, ibcf_rmse = evaluate_model(ibcf)
+    ibcf_results[metric]['mae'].append(ibcf_mae)
+    ibcf_results[metric]['rmse'].append(ibcf_rmse)
+
+# Print collected results
+print("UBCF Results:")
+print(ubcf_results)
+
+print("\nIBCF Results:")
+print(ibcf_results)
+
+# Plot the results
+fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+axes = axes.flatten()
+
+for i, metric in enumerate(similarity_metrics):
+    axes[i].plot(ubcf_results[metric]['mae'], label='UBCF MAE')
+    axes[i].plot(ubcf_results[metric]['rmse'], label='UBCF RMSE')
+
+    axes[i + 3].plot(ibcf_results[metric]['mae'], label='IBCF MAE')
+    axes[i + 3].plot(ibcf_results[metric]['rmse'], label='IBCF RMSE')
+
+    axes[i].set_title(f'Similarity Metric: {metric}')
+    axes[i].set_xlabel('Fold')
+    axes[i].set_ylabel('Error')
+    axes[i].legend()
+
+plt.tight_layout()
+plt.show()
